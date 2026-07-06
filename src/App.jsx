@@ -42,6 +42,7 @@ function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [isTripsOpen, setIsTripsOpen] = useState(false);
 
   // Journal navigation state shared across sidebars and editor pane.
   const [trips, setTrips] = useState([]);
@@ -213,44 +214,81 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto grid min-h-[calc(100vh-5.5rem)] max-w-[1800px] grid-cols-1 gap-4 p-4 md:grid-cols-[18rem_20rem_minmax(0,1fr)] md:p-6">
+      <main
+        // Keep responsive grid classes as static strings so Tailwind can generate them.
+        // Dynamically toggle between two grid layouts based on sidebar open state.
+        // When Days sidebar is closed, the slim rail and Notes sidebar are together (mobile).
+        className={[
+          "mx-auto grid min-h-[calc(100vh-5.5rem)] max-w-[1800px] gap-4 p-4 md:p-6",
+          "md:grid-rows-1",
+          isTripsOpen
+            ? "grid-cols-1 grid-rows-[auto_auto_auto] md:grid-cols-[18rem_20rem_minmax(0,1fr)]"
+            : "grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_auto] md:grid-cols-[3.5rem_20rem_minmax(0,1fr)]",
+        ].join(" ")}
+      >
         {/* Left column: trips list and trip-level actions. */}
         {/*
           onTripsLoaded and onSelectTrip are callback props.
           TripsSidebar calls them when database data arrives or user selects a trip.
         */}
-        <TripsSidebar
-          user={user}
-          activeTripId={activeTripId}
-          trips={trips}
-          onSelectTrip={setActiveTripId}
-          onTripsLoaded={setTrips}
-        />
+        <div
+          className={
+            isTripsOpen
+              ? "col-span-1 row-start-1 md:col-start-1 md:row-start-1"
+              : "col-start-1 row-start-1 md:col-start-1 md:row-start-1"
+          }
+        >
+          <TripsSidebar
+            user={user}
+            activeTripId={activeTripId}
+            trips={trips}
+            onSelectTrip={setActiveTripId}
+            onTripsLoaded={setTrips}
+            isTripsOpen={isTripsOpen}
+            setIsTripsOpen={setIsTripsOpen}
+          />
+        </div>
 
-        {/* Middle column: days/notes inside selected trip. */}
-        {/*
+        <div
+          className={
+            isTripsOpen
+              ? "col-span-1 row-start-2 md:col-start-2 md:row-start-1 min-w-0"
+              : "col-start-2 row-start-1 min-w-0 md:col-start-2 md:row-start-1"
+          }
+        >
+          {/* Middle column: days/notes inside selected trip. */}
+          {/*
           NotesSidebar depends on activeTripId.
           When trip changes, it subscribes to that trip's notes path.
         */}
-        <NotesSidebar
-          activeTripId={activeTripId}
-          activeNoteId={activeNoteId}
-          notes={notes}
-          onSelectNote={setActiveNoteId}
-          onNotesLoaded={setNotes}
-        />
+          <NotesSidebar
+            activeTripId={activeTripId}
+            activeNoteId={activeNoteId}
+            notes={notes}
+            onSelectNote={setActiveNoteId}
+            onNotesLoaded={setNotes}
+          />
+        </div>
 
         {/* Right column: editor for the currently selected day. */}
         {/*
           Editor receives full objects (activeTrip/activeNote), not just IDs,
           so it can render labels immediately without re-looking up data.
         */}
-        <JournalEditorPane
-          activeTripId={activeTripId}
-          activeNoteId={activeNoteId}
-          activeTrip={activeTrip}
-          activeNote={activeNote}
-        />
+        <div
+          className={
+            isTripsOpen
+              ? "col-span-1 row-start-3 md:col-start-3 md:row-start-1"
+              : "col-span-2 row-start-2 md:col-start-3 md:row-start-1"
+          }
+        >
+          <JournalEditorPane
+            activeTripId={activeTripId}
+            activeNoteId={activeNoteId}
+            activeTrip={activeTrip}
+            activeNote={activeNote}
+          />
+        </div>
       </main>
     </div>
   );

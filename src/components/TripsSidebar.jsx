@@ -25,6 +25,10 @@ function TripsSidebar({
   onSelectTrip,
   // Callback to replace trips list in App.
   onTripsLoaded,
+  // Whether the sidebar is open or closed
+  isTripsOpen,
+  // Setter to toggle sidebar open/closed
+  setIsTripsOpen,
 }) {
   const [loading, setLoading] = useState(true);
   const [deletingTripId, setDeletingTripId] = useState("");
@@ -103,6 +107,11 @@ function TripsSidebar({
     // Clean up listener to avoid duplicate subscriptions and memory leaks.
     return () => unsubscribe();
   }, [activeTripId, onSelectTrip, onTripsLoaded, user]);
+
+  // flips Trips sidebar open/closed
+  const toggleSidebar = () => {
+    setIsTripsOpen((prev) => !prev);
+  };
 
   /**
    * handleAddTrip creates a new trip node in the root `trips` path.
@@ -209,74 +218,108 @@ function TripsSidebar({
 
   // Render trips sidebar UI for all load/data/error states.
   return (
-    <aside className="flex min-h-80 flex-col rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20 backdrop-blur">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">Trips</h2>
+    <aside
+      className={`${
+        isTripsOpen ? "w-full min-h-80 p-4" : "w-14 min-h-80 p-2"
+      } flex flex-col rounded-3xl border border-white/10 bg-white/5 shadow-lg shadow-black/20 backdrop-blur`}
+    >
+      <div
+        className={`mb-4 flex items-center ${isTripsOpen ? "justify-between gap-3" : "justify-center"}`}
+      >
+        {/* Hamburger button is always visible, even when sidebar is closed. In
+        open state, you also see Add Trip. */}
         <button
           type="button"
-          onClick={handleAddTrip}
-          className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-400"
+          onClick={toggleSidebar}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-slate-300"
+          aria-label="Toggle trips sidebar"
         >
-          Add Trip
+          <span className="sr-only">Toggle trips sidebar</span>
+          {/* Hamburger menu icon (three horizontal lines); surrounding with a
+          button makes it clickable/tappable */}
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
         </button>
+        {/* When sidebar is closed, only the hamburger button and a slim rail is
+        visible. When open, you also see the Add Trip button, etc. */}
+        {isTripsOpen ? (
+          <button
+            type="button"
+            onClick={handleAddTrip}
+            className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-400"
+          >
+            Add Trip
+          </button>
+        ) : null}
       </div>
 
-      {loadError ? (
-        <p className="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-          {loadError}
-        </p>
-      ) : null}
+      {isTripsOpen ? (
+        <>
+          {loadError ? (
+            <p className="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              {loadError}
+            </p>
+          ) : null}
 
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-300">
-          Loading trips...
-        </div>
-      ) : trips.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-400">
-          No trips yet. The next milestone will add trip creation.
-        </div>
-      ) : (
-        <div className="space-y-2 overflow-y-auto pr-1">
-          {trips.map((trip) => {
-            const isActive = trip.id === activeTripId;
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center text-sm text-slate-300">
+              Loading trips...
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-400">
+              No trips yet. The next milestone will add trip creation.
+            </div>
+          ) : (
+            <div className="space-y-2 overflow-y-auto pr-1">
+              {trips.map((trip) => {
+                const isActive = trip.id === activeTripId;
 
-            return (
-              <div
-                key={trip.id}
-                className={`rounded-2xl border p-3 transition ${
-                  isActive
-                    ? "border-cyan-300/70 bg-cyan-300/10"
-                    : "border-white/10 bg-slate-900/60"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectTrip(trip.id)}
-                  className="w-full text-left"
-                >
-                  <p className="text-sm font-semibold text-white">
-                    {trip.title || "Untitled trip"}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {trip.description || "Tap to open the trip journal."}
-                  </p>
-                </button>
-
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    disabled={deletingTripId === trip.id}
-                    onClick={() => handleDeleteTrip(trip.id, trip.title)}
-                    className="rounded-full border border-rose-400/30 px-3 py-1 text-xs text-rose-200 transition hover:bg-rose-500/20"
+                return (
+                  <div
+                    key={trip.id}
+                    className={`rounded-2xl border p-3 transition ${
+                      isActive
+                        ? "border-cyan-300/70 bg-cyan-300/10"
+                        : "border-white/10 bg-slate-900/60"
+                    }`}
                   >
-                    {deletingTripId === trip.id ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                    <button
+                      type="button"
+                      onClick={() => onSelectTrip(trip.id)}
+                      className="w-full text-left"
+                    >
+                      <p className="text-sm font-semibold text-white">
+                        {trip.title || "Untitled trip"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {trip.description || "Tap to open the trip journal."}
+                      </p>
+                    </button>
+
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={deletingTripId === trip.id}
+                        onClick={() => handleDeleteTrip(trip.id, trip.title)}
+                        className="rounded-full border border-rose-400/30 px-3 py-1 text-xs text-rose-200 transition hover:bg-rose-500/20"
+                      >
+                        {deletingTripId === trip.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : null}
     </aside>
   );
 }

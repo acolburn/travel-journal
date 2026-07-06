@@ -33,7 +33,7 @@ function AuthScreen({
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col items-stretch justify-center gap-8 lg:flex-row lg:items-center">
         <section className="flex-1 space-y-4 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-black/30 backdrop-blur">
           <p className="text-sm font-semibold tracking-[0.3em] text-cyan-200 uppercase">
-            Travel Journal
+            Laura and Al's Days of Fun
           </p>
           <h1 className="max-w-xl text-4xl font-semibold leading-tight text-white md:text-5xl">
             An online green book for trips, days, and memories.
@@ -42,26 +42,6 @@ function AuthScreen({
             Sign in to view trips, browse notes, and export everything in Word
             format.
           </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-4">
-              <p className="text-xs tracking-[0.24em] text-cyan-200 uppercase">
-                Trips
-              </p>
-              <p className="mt-2 text-sm text-slate-300">Left sidebar</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-4">
-              <p className="text-xs tracking-[0.24em] text-cyan-200 uppercase">
-                Days
-              </p>
-              <p className="mt-2 text-sm text-slate-300">Middle sidebar</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-4">
-              <p className="text-xs tracking-[0.24em] text-cyan-200 uppercase">
-                Entry
-              </p>
-              <p className="mt-2 text-sm text-slate-300">Right editor pane</p>
-            </div>
-          </div>
         </section>
 
         <section className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/70 p-8 shadow-2xl shadow-black/30 backdrop-blur">
