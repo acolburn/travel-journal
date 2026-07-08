@@ -220,10 +220,10 @@ function App() {
         // When Days sidebar is closed, the slim rail and Notes sidebar are together (mobile).
         className={[
           "mx-auto grid min-h-[calc(100vh-5.5rem)] max-w-[1800px] gap-4 p-4 md:p-6",
-          "md:grid-rows-1",
+          "lg:grid-rows-1",
           isTripsOpen
-            ? "grid-cols-1 grid-rows-[auto_auto_auto] md:grid-cols-[18rem_20rem_minmax(0,1fr)]"
-            : "grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_auto] md:grid-cols-[3.5rem_20rem_minmax(0,1fr)]",
+            ? "grid-cols-1 grid-rows-[auto_auto_auto] lg:grid-cols-[18rem_20rem_minmax(0,1fr)]"
+            : "grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_auto] lg:grid-cols-[3.5rem_20rem_minmax(0,1fr)]",
         ].join(" ")}
       >
         {/* Left column: trips list and trip-level actions. */}
@@ -234,8 +234,8 @@ function App() {
         <div
           className={
             isTripsOpen
-              ? "col-span-1 row-start-1 md:col-start-1 md:row-start-1"
-              : "col-start-1 row-start-1 md:col-start-1 md:row-start-1"
+              ? "col-span-1 row-start-1 lg:col-start-1 lg:row-start-1"
+              : "col-start-1 row-start-1 lg:col-start-1 lg:row-start-1"
           }
         >
           <TripsSidebar
@@ -252,8 +252,8 @@ function App() {
         <div
           className={
             isTripsOpen
-              ? "col-span-1 row-start-2 md:col-start-2 md:row-start-1 min-w-0"
-              : "col-start-2 row-start-1 min-w-0 md:col-start-2 md:row-start-1"
+              ? "col-span-1 row-start-2 lg:col-start-2 lg:row-start-1 min-w-0"
+              : "col-start-2 row-start-1 min-w-0 lg:col-start-2 lg:row-start-1"
           }
         >
           {/* Middle column: days/notes inside selected trip. */}
@@ -278,8 +278,8 @@ function App() {
         <div
           className={
             isTripsOpen
-              ? "col-span-1 row-start-3 md:col-start-3 md:row-start-1"
-              : "col-span-2 row-start-2 md:col-start-3 md:row-start-1"
+              ? "col-span-1 row-start-3 lg:col-start-3 lg:row-start-1"
+              : "col-span-2 row-start-2 lg:col-start-3 lg:row-start-1"
           }
         >
           <JournalEditorPane

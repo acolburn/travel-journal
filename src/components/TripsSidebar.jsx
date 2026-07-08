@@ -220,7 +220,7 @@ function TripsSidebar({
   return (
     <aside
       className={`${
-        isTripsOpen ? "w-full min-h-80 p-4" : "w-14 min-h-80 p-2"
+        isTripsOpen ? "w-full min-h-80 p-4" : "w-14 min-h-15 p-2"
       } flex flex-col rounded-3xl border border-white/10 bg-white/5 shadow-lg shadow-black/20 backdrop-blur`}
     >
       <div
