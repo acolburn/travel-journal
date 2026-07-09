@@ -31,6 +31,20 @@ function JournalEditorPane({
   const [entryText, setEntryText] = useState(activeNote?.entryText || "");
   const [saveState, setSaveState] = useState("idle");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Snapshot of last persisted values used to detect unsaved edits.
   const lastSavedRef = useRef({
@@ -257,7 +271,19 @@ function JournalEditorPane({
       </div>
 
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">Manual save mode</p>
+        <p className="text-xs text-slate-400">
+          <span
+            style={{
+              marginRight: 4,
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: isOnline ? "limegreen" : "crimson",
+              display: "inline-block",
+            }}
+          ></span>
+          <span>{isOnline ? "Online" : "Offline"}</span>
+        </p>
         <button
           type="button"
           onClick={handleSaveClick}
