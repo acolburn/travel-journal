@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ref, update } from "firebase/database";
 import { db } from "../../firestore";
+
+const AUTOSAVE_INTERVAL_MS = 20000; // 20 seconds
 
 /**
  * JournalEditorPane renders the right column containing the active note fields.
@@ -32,6 +33,12 @@ function JournalEditorPane({
   const [saveState, setSaveState] = useState("idle");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const saveStateRef = useRef(saveState);
+  const saveIfNeededRef = useRef(async () => {});
+
+  useEffect(() => {
+    saveStateRef.current = saveState;
+  }, [saveState]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -52,6 +59,14 @@ function JournalEditorPane({
     entryText: activeNote?.entryText || "",
     displayDateTimestamp: activeNote?.displayDateTimestamp || 0,
   });
+
+  // Helper function to determine if there are unsaved changes.
+  const hasUnsavedChanges = useCallback((nextDateLabel, nextEntryText) => {
+    return (
+      nextDateLabel !== lastSavedRef.current.dateLabel ||
+      nextEntryText !== lastSavedRef.current.entryText
+    );
+  }, []);
 
   /**
    * This effect auto-resizes the textarea as text changes.
@@ -116,9 +131,7 @@ function JournalEditorPane({
    */
   const markDirtyIfChanged = (nextDateLabel, nextEntryText) => {
     // Compare current inputs against last saved snapshot.
-    const isDirty =
-      nextDateLabel !== lastSavedRef.current.dateLabel ||
-      nextEntryText !== lastSavedRef.current.entryText;
+    const isDirty = hasUnsavedChanges(nextDateLabel, nextEntryText);
 
     // Dirty means save button should be enabled; idle means disabled.
     setSaveState(isDirty ? "dirty" : "idle");
@@ -149,6 +162,106 @@ function JournalEditorPane({
     markDirtyIfChanged(dateLabel, value);
   };
 
+  const handleEditorBlur = () => {
+    // Do not attempt blur-save unless a concrete trip and note are selected.
+    if (!activeTripId || !activeNoteId) {
+      // Exit early when there is no valid note target.
+      return;
+    }
+    // Do not issue another request if a save is already in flight.
+    if (saveStateRef.current === "saving") {
+      // Exit to prevent overlapping writes for the same note.
+      return;
+    }
+    // Do not call save when no unsaved changes exist.
+    if (saveStateRef.current !== "dirty") {
+      // Exit because there is nothing new to persist.
+      return;
+    }
+    // Do not attempt a blur-save while the browser reports offline state.
+    if (!navigator.onLine) {
+      // Exit and let interval/manual save handle persistence when online.
+      return;
+    }
+    // Trigger the shared save path so blur-save and manual/interval save stay consistent.
+    void saveIfNeededRef.current();
+  };
+
+  const saveIfNeeded = async () => {
+    // Guard against save attempts when no target note is selected.
+    if (!activeTripId || !activeNoteId) {
+      return;
+    }
+    // Has anything changed vs last save?
+    const hasChanges = hasUnsavedChanges(dateLabel, entryText);
+    // If nothing changed, skip network write and reset status to idle.
+    if (!hasChanges) {
+      setSaveState("idle");
+      return;
+    }
+    // If something changed ...
+    setSaveState("saving");
+    setSaveErrorMessage("");
+
+    const parsedDate = Date.parse(dateLabel);
+    // nextTimestamp is the value saved to Firebase. It is either a parseable date or falls back to last saved/current time.
+    const nextTimestamp = Number.isNaN(parsedDate)
+      ? lastSavedRef.current.displayDateTimestamp || Date.now()
+      : parsedDate;
+    // Save updated fields to the database, at the exact path for the active note.
+    try {
+      await update(ref(db, `trips/${activeTripId}/notes/${activeNoteId}`), {
+        displayDate: dateLabel,
+        entryText,
+        displayDateTimestamp: nextTimestamp,
+        updatedAt: Date.now(),
+      });
+      // Update local saved snapshot so future dirty checks are accurate, i.e.,
+      // we know what the last saved values were for comparison against current inputs.
+      lastSavedRef.current = {
+        dateLabel,
+        entryText,
+        displayDateTimestamp: nextTimestamp,
+      };
+      setSaveState("saved");
+    } catch (error) {
+      console.error("Unable to save note.", error);
+      setSaveState("error");
+      setSaveErrorMessage(
+        error?.code
+          ? `${error.code}: ${error.message || "Save failed."}`
+          : "Save failed.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    saveIfNeededRef.current = saveIfNeeded;
+  });
+
+  useEffect(() => {
+    if (!activeTripId || !activeNoteId) {
+      return undefined;
+    }
+    const intervalId = window.setInterval(() => {
+      // if it's in the middle of saving, don't try to save again
+      if (saveStateRef.current === "saving") {
+        return;
+      }
+      // if it's nothing has changed, don't try to save
+      if (saveStateRef.current !== "dirty") {
+        return;
+      }
+      // if the user is offline, don't try to save
+      if (!navigator.onLine) {
+        return;
+      }
+
+      void saveIfNeededRef.current();
+    }, AUTOSAVE_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeTripId, activeNoteId]);
   /**
    * handleSaveClick writes the current editor values to Realtime Database.
    *
@@ -159,64 +272,7 @@ function JournalEditorPane({
    * This avoids unnecessary network writes.
    */
   const handleSaveClick = async () => {
-    // Guard against save attempts when no target note is selected.
-    if (!activeTripId || !activeNoteId) {
-      return;
-    }
-
-    // Compute whether there is anything new to persist.
-    const hasChanges =
-      dateLabel !== lastSavedRef.current.dateLabel ||
-      entryText !== lastSavedRef.current.entryText;
-
-    // Skip write when values already match last saved snapshot.
-    if (!hasChanges) {
-      setSaveState("idle");
-      return;
-    }
-
-    // Enter saving state to disable button and show progress text.
-    setSaveState("saving");
-    // Clear previous save error before new write attempt.
-    setSaveErrorMessage("");
-
-    // Parse human-readable date label into numeric timestamp.
-    const parsedDate = Date.parse(dateLabel);
-    // Accepts either parseable date text or falls back to previous/current time.
-    const nextTimestamp = Number.isNaN(parsedDate)
-      ? lastSavedRef.current.displayDateTimestamp || Date.now()
-      : parsedDate;
-
-    try {
-      // Persist updated fields to exact note path in database.
-      await update(ref(db, `trips/${activeTripId}/notes/${activeNoteId}`), {
-        displayDate: dateLabel,
-        entryText,
-        displayDateTimestamp: nextTimestamp,
-        updatedAt: Date.now(),
-      });
-
-      // Update local saved snapshot so future dirty checks are accurate.
-      lastSavedRef.current = {
-        dateLabel,
-        entryText,
-        displayDateTimestamp: nextTimestamp,
-      };
-
-      // Mark operation complete for status label/button logic.
-      setSaveState("saved");
-    } catch (error) {
-      // Log full error for developer debugging.
-      console.error("Unable to save note.", error);
-      // Set explicit error status for user-facing message color/state.
-      setSaveState("error");
-      // Build detailed message when Firebase error code is available.
-      setSaveErrorMessage(
-        error?.code
-          ? `${error.code}: ${error.message || "Save failed."}`
-          : "Save failed.",
-      );
-    }
+    await saveIfNeeded();
   };
 
   /**
@@ -299,19 +355,17 @@ function JournalEditorPane({
         </button>
       </div>
 
-      {getSaveStatusLabel() ? (
-        <p
-          className={`mb-4 text-xs ${
-            saveState === "error"
-              ? "text-rose-300"
-              : saveState === "saved"
-                ? "text-emerald-300"
-                : "text-slate-400"
-          }`}
-        >
-          {getSaveStatusLabel()}
-        </p>
-      ) : null}
+      <p
+        className={`mb-4 min-h-4 text-xs ${
+          saveState === "error"
+            ? "text-rose-300"
+            : saveState === "saved"
+              ? "text-emerald-300"
+              : "text-slate-400"
+        }`}
+      >
+        {getSaveStatusLabel() || " "}
+      </p>
 
       {saveErrorMessage ? (
         <p className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
@@ -331,6 +385,8 @@ function JournalEditorPane({
               type="text"
               value={dateLabel}
               onChange={(event) => handleDateChange(event.target.value)}
+              // Save immediately when focus leaves the date field.
+              onBlur={handleEditorBlur}
               className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300/70"
             />
           </label>
@@ -341,6 +397,8 @@ function JournalEditorPane({
               ref={textareaRef}
               value={entryText}
               onChange={(event) => handleEntryChange(event.target.value)}
+              // Save immediately when focus leaves the entry textarea.
+              onBlur={handleEditorBlur}
               className="min-h-48 max-h-175 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/70 px-4 py-4 font-mono text-sm leading-6 text-slate-100 outline-none transition focus:border-cyan-300/70"
               placeholder="Write your markdown journal entry here."
             />
