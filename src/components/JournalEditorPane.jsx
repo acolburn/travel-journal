@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ref, update } from "firebase/database";
 import { db } from "../../firestore";
+import { marked } from "marked";
 
 const AUTOSAVE_INTERVAL_MS = 20000; // 20 seconds
 
@@ -25,6 +26,8 @@ function JournalEditorPane({
   activeTrip,
   // Active note object provides initial editor values.
   activeNote,
+  // All notes for the active trip
+  notes,
 }) {
   // Ref to textarea DOM node for auto-resize behavior.
   const textareaRef = useRef(null);
@@ -33,6 +36,8 @@ function JournalEditorPane({
   const [saveState, setSaveState] = useState("idle");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isExporting, setIsExporting] = useState(false); // used to control export button disabled/loading text
+  const [exportError, setExportError] = useState(""); // will show failure message if export fails
   const saveStateRef = useRef(saveState);
   const saveIfNeededRef = useRef(async () => {});
 
@@ -262,6 +267,18 @@ function JournalEditorPane({
 
     return () => window.clearInterval(intervalId);
   }, [activeTripId, activeNoteId]);
+
+  const getExportableNotes = () => {
+    // copy notes array and
+    // filter out any notes that have no entry text, then
+    // sort by displayDateTimestamp ascending
+    return [...notes]
+      .filter((note) => (note.entryText || "").trim().length > 0)
+      .sort(
+        (a, b) => (a.displayDateTimestamp || 0) - (b.displayDateTimestamp || 0),
+      );
+  };
+
   /**
    * handleSaveClick writes the current editor values to Realtime Database.
    *
@@ -305,6 +322,77 @@ function JournalEditorPane({
     return "";
   };
 
+  const handleExportClick = () => {
+    setIsExporting(true);
+    setExportError("");
+
+    try {
+      const exportableNotes = getExportableNotes();
+      // Convert notes to markdown format, including a header for each note's date and a horizontal rule between notes.
+      const markdownContent = exportableNotes
+        .map(
+          (note) =>
+            `## ${note.displayDate || "Untitled date"}\n\n${note.entryText || ""}`,
+        )
+        .join("\n\n");
+      // Convert markdown to HTML using marked library
+      const rawHtmlBody = marked.parse(markdownContent);
+      // Remove all <a> tags from the HTML body, keeping only the inner text of the links.
+      // This prevents external links being included in exported HTML, which will be opened
+      // in a browser and could be a security risk....from AI; prob never apply to me
+      const htmlBodyWithoutLinks = rawHtmlBody.replace(
+        /<a\b[^>]*>(.*?)<\/a>/gi,
+        "$1",
+      );
+      // Wrap the HTML body in a complete HTML document structure with a <head>
+      // and <body> section, including some basic styling for readability.
+      const htmlDocument = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Trip Export</title>
+    <style>
+      body { font-family: Georgia, "Times New Roman", serif; margin: 40px; line-height: 1.5; color: #111; }
+      h2 { margin-top: 28px; margin-bottom: 10px; }
+      p { margin: 10px 0; }
+      ul, ol { margin: 10px 0 10px 24px; }
+      table { border-collapse: collapse; margin: 12px 0; width: 100%; }
+      th, td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; vertical-align: top; }
+      hr { margin: 24px 0; border: none; border-top: 1px solid #ccc; }
+    </style>
+  </head>
+  <body>
+    ${htmlBodyWithoutLinks}
+  </body>
+</html>`;
+
+      // Create downloadable HTML file content
+      const blob = new Blob([htmlDocument], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      // Create an <a> element in JS
+      const a = document.createElement("a");
+      // set its href to the blob URL and set the download attribute to specify the filename
+      a.href = url;
+      // Use the trip title as part of the filename, replacing any unsafe characters with hyphens.
+      const safeTripName = (activeTrip?.title || "trip").replace(
+        /[^\w-]+/g,
+        "-",
+      );
+      a.download = `${safeTripName}-Green-Book.html`;
+      document.body.appendChild(a);
+      // Programmatically click the <a> element to trigger the download
+      a.click();
+      // Clean up by removing the temporary anchor and revoking the object URL.
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Unable to export trip.", error);
+      setExportError("Unable to export right now. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Render editor panel and save-state messages.
   return (
     <section className="flex min-h-112 flex-col rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20 backdrop-blur">
@@ -319,10 +407,13 @@ function JournalEditorPane({
         </div>
         <button
           type="button"
-          disabled
+          disabled={
+            isExporting || !activeTrip || getExportableNotes().length === 0
+          }
           className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-400"
+          onClick={handleExportClick}
         >
-          Download Trip Archive
+          {isExporting ? "Exporting..." : "Download Trip Archive"}
         </button>
       </div>
 
@@ -370,6 +461,12 @@ function JournalEditorPane({
       {saveErrorMessage ? (
         <p className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
           {saveErrorMessage}
+        </p>
+      ) : null}
+
+      {exportError ? (
+        <p className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          {exportError}
         </p>
       ) : null}
 

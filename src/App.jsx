@@ -287,6 +287,7 @@ function App() {
             activeNoteId={activeNoteId}
             activeTrip={activeTrip}
             activeNote={activeNote}
+            notes={notes}
           />
         </div>
       </main>
