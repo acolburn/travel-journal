@@ -24,6 +24,8 @@ function NotesSidebar({
   onNotesLoaded,
   // Callback to set currently active note id in App.
   onSelectNote,
+  // Guests can read notes but cannot mutate data.
+  canEdit,
 }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -103,6 +105,11 @@ function NotesSidebar({
    * A new note starts with empty entryText so editor can open immediately.
    */
   const handleAddDay = async () => {
+    if (!canEdit) {
+      window.alert("Please sign in to add days.");
+      return;
+    }
+
     // Guard against add action without selected trip.
     if (!activeTripId) {
       return;
@@ -149,6 +156,11 @@ function NotesSidebar({
    * delete scope is only this note path, not the entire trip.
    */
   const handleDeleteDay = async (noteId, displayDate) => {
+    if (!canEdit) {
+      window.alert("Please sign in to delete days.");
+      return;
+    }
+
     // Require confirmation before deleting user content.
     const confirmed = window.confirm(
       `Delete day "${displayDate || "Untitled day"}"?`,
@@ -199,6 +211,7 @@ function NotesSidebar({
         <button
           type="button"
           onClick={handleAddDay}
+          disabled={!canEdit}
           className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-400"
         >
           Add Day
@@ -259,6 +272,7 @@ function NotesSidebar({
                 <div className="mt-3 flex justify-end">
                   <button
                     type="button"
+                    disabled={!canEdit}
                     onClick={(event) => {
                       // Prevent delete click from also triggering card selection.
                       event.stopPropagation();

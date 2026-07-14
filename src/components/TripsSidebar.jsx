@@ -15,8 +15,6 @@ import { db } from "../../firestore";
  * It reports loaded data upward via onTripsLoaded, and App stores it.
  */
 function TripsSidebar({
-  // Signed-in user object; used as a guard before subscribing.
-  user,
   // Currently selected trip id from App.
   activeTripId,
   // Renderable trips list from App state.
@@ -29,13 +27,15 @@ function TripsSidebar({
   isTripsOpen,
   // Setter to toggle sidebar open/closed
   setIsTripsOpen,
+  // Guests can read trips but cannot mutate data.
+  canEdit,
 }) {
   const [loading, setLoading] = useState(true);
   const [deletingTripId, setDeletingTripId] = useState("");
   const [loadError, setLoadError] = useState("");
 
   /**
-   * This effect subscribes to the root `trips` path whenever a signed-in user exists.
+   * This effect subscribes to the root `trips` path.
    * It updates parent state through `onTripsLoaded` and keeps one trip selected.
    *
    * Realtime Database returns object data like:
@@ -45,16 +45,8 @@ function TripsSidebar({
    * }
    * so we transform that object into an array before rendering.
    *
-   * Why `user` in dependencies?
-   * We only want a live trips subscription while signed in.
-   * When user changes/signs out, React cleans up old listener automatically.
    */
   useEffect(() => {
-    // Skip database listener when no authenticated user exists.
-    if (!user) {
-      return undefined;
-    }
-
     // Reference to root trips path in Realtime Database.
     const tripsRef = ref(db, "trips");
 
@@ -106,7 +98,7 @@ function TripsSidebar({
 
     // Clean up listener to avoid duplicate subscriptions and memory leaks.
     return () => unsubscribe();
-  }, [activeTripId, onSelectTrip, onTripsLoaded, user]);
+  }, [activeTripId, onSelectTrip, onTripsLoaded]);
 
   // flips Trips sidebar open/closed
   const toggleSidebar = () => {
@@ -119,6 +111,11 @@ function TripsSidebar({
    * The generated key from push() becomes the trip "id" used by UI.
    */
   const handleAddTrip = async () => {
+    if (!canEdit) {
+      window.alert("Please sign in to create trips.");
+      return;
+    }
+
     // Prompt keeps this milestone simple; can later be replaced by custom modal.
     const tripTitleInput = window.prompt("Trip title:", "New Trip");
 
@@ -162,6 +159,11 @@ function TripsSidebar({
    * all nested children (including notes under that trip).
    */
   const handleDeleteTrip = async (tripId, tripTitle) => {
+    if (!canEdit) {
+      window.alert("Please sign in to delete trips.");
+      return;
+    }
+
     // Confirm destructive operation before deleting data.
     const confirmed = window.confirm(
       `Delete trip "${tripTitle || "Untitled trip"}" and all its days?`,
@@ -253,6 +255,7 @@ function TripsSidebar({
           <button
             type="button"
             onClick={handleAddTrip}
+            disabled={!canEdit}
             className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-400"
           >
             Add Trip
@@ -306,7 +309,7 @@ function TripsSidebar({
                     <div className="mt-3 flex justify-end">
                       <button
                         type="button"
-                        disabled={deletingTripId === trip.id}
+                        disabled={!canEdit || deletingTripId === trip.id}
                         onClick={() => handleDeleteTrip(trip.id, trip.title)}
                         className="rounded-full border border-rose-400/30 px-3 py-1 text-xs text-rose-200 transition hover:bg-rose-500/20"
                       >

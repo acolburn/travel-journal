@@ -10,10 +10,6 @@
  * parent component owns truth, child component renders and forwards events.
  */
 function AuthScreen({
-  // Current auth mode passed down from App (signin or signup).
-  authMode,
-  // Setter from App to switch auth mode.
-  setAuthMode,
   // Controlled email value from parent state.
   email,
   // Parent setter for email input changes.
@@ -26,6 +22,8 @@ function AuthScreen({
   authError,
   // Form submit handler owned by App.
   onSubmit,
+  // Continue without signing in (read-only browsing).
+  onViewJournals,
 }) {
   // Render presentational auth layout with controlled form props.
   return (
@@ -39,31 +37,26 @@ function AuthScreen({
             An online green book for trips, days, and memories.
           </h1>
           <p className="max-w-xl text-sm leading-7 text-slate-300 md:text-base">
-            Sign in to view trips, browse notes, and export everything in Word
-            format.
+            Click the guest link to view notes from our trips.
           </p>
         </section>
 
         <section className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/70 p-8 shadow-2xl shadow-black/30 backdrop-blur">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              {/* The same form supports both sign-in and sign-up flows. */}
               <p className="text-sm font-semibold tracking-[0.24em] text-cyan-200 uppercase">
-                {authMode === "signin" ? "Welcome back" : "Create account"}
+                Welcome back
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-white">
-                {authMode === "signin" ? "Sign in" : "Sign up"}
+                Sign in
               </h2>
             </div>
             <button
               type="button"
-              // Switches between sign-in and sign-up mode without leaving page.
-              onClick={() =>
-                setAuthMode(authMode === "signin" ? "signup" : "signin")
-              }
+              onClick={onViewJournals}
               className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/60 hover:text-white"
             >
-              {authMode === "signin" ? "Need an account?" : "Have an account?"}
+              View journals
             </button>
           </div>
 
@@ -109,7 +102,7 @@ function AuthScreen({
               type="submit"
               className="w-full rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
             >
-              {authMode === "signin" ? "Sign in" : "Create account"}
+              Sign in
             </button>
           </form>
         </section>

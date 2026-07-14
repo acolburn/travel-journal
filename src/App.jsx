@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -38,11 +37,11 @@ function App() {
   // Auth and auth-form state.
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(!hasFirebaseConfigIssue);
-  const [authMode, setAuthMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [isTripsOpen, setIsTripsOpen] = useState(false);
+  const [isGuestView, setIsGuestView] = useState(false);
 
   // Journal navigation state shared across sidebars and editor pane.
   const [trips, setTrips] = useState([]);
@@ -94,7 +93,7 @@ function App() {
   const activeNote = notes.find((note) => note.id === activeNoteId) || null;
 
   /**
-   * handleAuthSubmit signs in or signs up using email/password.
+   * handleAuthSubmit signs in using email/password.
    *
    * The form submit handler lives in App (not AuthScreen) so that:
    * - network/auth logic remains centralized,
@@ -116,14 +115,11 @@ function App() {
     }
 
     try {
-      // We reuse one form and switch behavior by mode.
-      if (authMode === "signin") {
-        // Existing-user sign-in flow.
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        // New-user registration flow.
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
+      // Existing-user sign-in flow.
+      await signInWithEmailAndPassword(auth, email, password);
+
+      // Authenticated users can edit, so leave guest-only mode.
+      setIsGuestView(false);
 
       // Clear password field after successful auth.
       setPassword("");
@@ -149,10 +145,18 @@ function App() {
     try {
       // End active Firebase auth session.
       await signOut(auth);
+      // Stay in app shell as guest after sign-out.
+      setIsGuestView(true);
     } catch (error) {
       // Show sign-out error in shared auth error area.
       setAuthError(error.message);
     }
+  };
+
+  const handleViewJournals = () => {
+    setAuthError("");
+    setPassword("");
+    setIsGuestView(true);
   };
 
   // First branch: auth status still loading.
@@ -170,23 +174,22 @@ function App() {
     );
   }
 
-  if (!user) {
+  if (!user && !isGuestView) {
     // Not signed in: show auth page.
     return (
       <AuthScreen
-        authMode={authMode}
-        setAuthMode={setAuthMode}
         email={email}
         setEmail={setEmail}
         password={password}
         setPassword={setPassword}
         authError={authError}
         onSubmit={handleAuthSubmit}
+        onViewJournals={handleViewJournals}
       />
     );
   }
 
-  // Final branch: authenticated app shell.
+  // Final branch: app shell (authenticated editor or guest read-only mode).
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-white/10 bg-slate-950/90 px-4 py-4 backdrop-blur md:px-6">
@@ -200,16 +203,28 @@ function App() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <p className="hidden text-sm text-slate-300 sm:block">
-              {user.email}
-            </p>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/60 hover:text-white"
-            >
-              Sign out
-            </button>
+            {user ? (
+              <>
+                <p className="hidden text-sm text-slate-300 sm:block">
+                  {user.email}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/60 hover:text-white"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsGuestView(false)}
+                className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-300/60 hover:text-white"
+              >
+                Sign in to edit
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -239,13 +254,13 @@ function App() {
           }
         >
           <TripsSidebar
-            user={user}
             activeTripId={activeTripId}
             trips={trips}
             onSelectTrip={setActiveTripId}
             onTripsLoaded={setTrips}
             isTripsOpen={isTripsOpen}
             setIsTripsOpen={setIsTripsOpen}
+            canEdit={Boolean(user)}
           />
         </div>
 
@@ -267,6 +282,7 @@ function App() {
             notes={notes}
             onSelectNote={setActiveNoteId}
             onNotesLoaded={setNotes}
+            canEdit={Boolean(user)}
           />
         </div>
 
@@ -288,6 +304,7 @@ function App() {
             activeTrip={activeTrip}
             activeNote={activeNote}
             notes={notes}
+            canEdit={Boolean(user)}
           />
         </div>
       </main>

@@ -28,6 +28,8 @@ function JournalEditorPane({
   activeNote,
   // All notes for the active trip
   notes,
+  // Whether note mutations are allowed for the current session.
+  canEdit,
 }) {
   // Ref to textarea DOM node for auto-resize behavior.
   const textareaRef = useRef(null);
@@ -68,13 +70,17 @@ function JournalEditorPane({
   });
 
   // Helper function to determine if there are unsaved changes.
-  const hasUnsavedChanges = useCallback((nextDateLabel, nextLocation, nextEntryText) => { // Accept nextLocation so location-only edits are detected.
-    return (
-      nextDateLabel !== lastSavedRef.current.dateLabel ||
-      nextLocation !== lastSavedRef.current.location || // Compare location against the saved snapshot.
-      nextEntryText !== lastSavedRef.current.entryText
-    );
-  }, []);
+  const hasUnsavedChanges = useCallback(
+    (nextDateLabel, nextLocation, nextEntryText) => {
+      // Accept nextLocation so location-only edits are detected.
+      return (
+        nextDateLabel !== lastSavedRef.current.dateLabel ||
+        nextLocation !== lastSavedRef.current.location || // Compare location against the saved snapshot.
+        nextEntryText !== lastSavedRef.current.entryText
+      );
+    },
+    [],
+  );
 
   /**
    * This effect auto-resizes the textarea as text changes.
@@ -141,9 +147,14 @@ function JournalEditorPane({
    *
    * If values match, button becomes disabled via "idle" state.
    */
-  const markDirtyIfChanged = (nextDateLabel, nextLocation, nextEntryText) => { // Include location in the dirty-state calculation inputs.
+  const markDirtyIfChanged = (nextDateLabel, nextLocation, nextEntryText) => {
+    // Include location in the dirty-state calculation inputs.
     // Compare current inputs against last saved snapshot.
-    const isDirty = hasUnsavedChanges(nextDateLabel, nextLocation, nextEntryText); // Reuse one comparison that now checks location too.
+    const isDirty = hasUnsavedChanges(
+      nextDateLabel,
+      nextLocation,
+      nextEntryText,
+    ); // Reuse one comparison that now checks location too.
 
     // Dirty means save button should be enabled; idle means disabled.
     setSaveState(isDirty ? "dirty" : "idle");
@@ -158,13 +169,22 @@ function JournalEditorPane({
    * handleDateChange updates local date text and marks the note as dirty.
    */
   const handleDateChange = (value) => {
+    if (!canEdit) {
+      return;
+    }
+
     // Update local date field immediately as user types.
     setDateLabel(value);
     // Re-evaluate whether unsaved changes now exist.
     markDirtyIfChanged(value, location, entryText); // Preserve current location when re-checking dirty state.
   };
 
-  const handleLocationChange = (value) => { // Centralize location edits so location changes can mark the note dirty.
+  const handleLocationChange = (value) => {
+    // Centralize location edits so location changes can mark the note dirty.
+    if (!canEdit) {
+      return;
+    }
+
     setLocation(value); // Update local location state immediately while typing.
     markDirtyIfChanged(dateLabel, value, entryText); // Re-check dirty state using the newly typed location.
   };
@@ -173,6 +193,10 @@ function JournalEditorPane({
    * handleEntryChange updates local markdown text and marks the note as dirty.
    */
   const handleEntryChange = (value) => {
+    if (!canEdit) {
+      return;
+    }
+
     // Update local markdown body immediately as user types.
     setEntryText(value);
     // Re-evaluate whether unsaved changes now exist.
@@ -180,6 +204,10 @@ function JournalEditorPane({
   };
 
   const handleEditorBlur = () => {
+    if (!canEdit) {
+      return;
+    }
+
     // Do not attempt blur-save unless a concrete trip and note are selected.
     if (!activeTripId || !activeNoteId) {
       // Exit early when there is no valid note target.
@@ -205,6 +233,10 @@ function JournalEditorPane({
   };
 
   const saveIfNeeded = async () => {
+    if (!canEdit) {
+      return;
+    }
+
     // Guard against save attempts when no target note is selected.
     if (!activeTripId || !activeNoteId) {
       return;
@@ -303,6 +335,10 @@ function JournalEditorPane({
    * This avoids unnecessary network writes.
    */
   const handleSaveClick = async () => {
+    if (!canEdit) {
+      return;
+    }
+
     await saveIfNeeded();
   };
 
@@ -449,6 +485,7 @@ function JournalEditorPane({
           type="button"
           onClick={handleSaveClick}
           disabled={
+            !canEdit ||
             !activeNote ||
             saveState === "saving" ||
             saveState === "idle" ||
@@ -495,6 +532,7 @@ function JournalEditorPane({
             <input
               type="text"
               value={dateLabel}
+              disabled={!canEdit}
               onChange={(event) => handleDateChange(event.target.value)}
               // Save immediately when focus leaves the date field.
               onBlur={handleEditorBlur}
@@ -510,6 +548,7 @@ function JournalEditorPane({
             <input
               type="text" // Use a plain text input because locations are free-form text.
               value={location} // Bind input value to local state so React controls the field.
+              disabled={!canEdit}
               onChange={(event) => handleLocationChange(event.target.value)} // Use shared location handler so location-only edits enable saving.
               onBlur={handleEditorBlur} // Keep blur behavior consistent with other editor fields.
               className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300/70" // Match existing input styling in this component.
@@ -522,6 +561,7 @@ function JournalEditorPane({
             <textarea
               ref={textareaRef}
               value={entryText}
+              disabled={!canEdit}
               onChange={(event) => handleEntryChange(event.target.value)}
               // Save immediately when focus leaves the entry textarea.
               onBlur={handleEditorBlur}
