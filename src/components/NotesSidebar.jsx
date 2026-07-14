@@ -124,6 +124,7 @@ function NotesSidebar({
       await set(newNoteRef, {
         displayDate: defaultDisplayDate,
         displayDateTimestamp: now.getTime(),
+        location: "",
         entryText: "",
         createdAt: Date.now(),
         updatedAt: Date.now(),

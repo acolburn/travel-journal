@@ -32,6 +32,7 @@ function JournalEditorPane({
   // Ref to textarea DOM node for auto-resize behavior.
   const textareaRef = useRef(null);
   const [dateLabel, setDateLabel] = useState(activeNote?.displayDate || "");
+  const [location, setLocation] = useState(activeNote?.location || ""); // Start Location from the selected note; fall back to blank if missing.
   const [entryText, setEntryText] = useState(activeNote?.entryText || "");
   const [saveState, setSaveState] = useState("idle");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
@@ -61,14 +62,16 @@ function JournalEditorPane({
   // Snapshot of last persisted values used to detect unsaved edits.
   const lastSavedRef = useRef({
     dateLabel: activeNote?.displayDate || "",
+    location: activeNote?.location || "", // Keep last saved location so dirty checks include location edits.
     entryText: activeNote?.entryText || "",
     displayDateTimestamp: activeNote?.displayDateTimestamp || 0,
   });
 
   // Helper function to determine if there are unsaved changes.
-  const hasUnsavedChanges = useCallback((nextDateLabel, nextEntryText) => {
+  const hasUnsavedChanges = useCallback((nextDateLabel, nextLocation, nextEntryText) => { // Accept nextLocation so location-only edits are detected.
     return (
       nextDateLabel !== lastSavedRef.current.dateLabel ||
+      nextLocation !== lastSavedRef.current.location || // Compare location against the saved snapshot.
       nextEntryText !== lastSavedRef.current.entryText
     );
   }, []);
@@ -106,10 +109,13 @@ function JournalEditorPane({
     const frameId = window.requestAnimationFrame(() => {
       // Compute safe fallback values when no active note exists.
       const nextDateLabel = activeNote?.displayDate || "";
+      const nextLocation = activeNote?.location || "";
       const nextEntryText = activeNote?.entryText || "";
 
       // Sync editable date label with selected note.
       setDateLabel(nextDateLabel);
+      // Sync editable location with selected note.
+      setLocation(nextLocation);
       // Sync editable body text with selected note.
       setEntryText(nextEntryText);
       // Reset save-status indicators for new note context.
@@ -119,6 +125,7 @@ function JournalEditorPane({
       // Refresh last-saved snapshot to match selected note values.
       lastSavedRef.current = {
         dateLabel: nextDateLabel,
+        location: nextLocation, // Keep snapshot aligned with selected note location.
         entryText: nextEntryText,
         displayDateTimestamp: activeNote?.displayDateTimestamp || 0,
       };
@@ -134,9 +141,9 @@ function JournalEditorPane({
    *
    * If values match, button becomes disabled via "idle" state.
    */
-  const markDirtyIfChanged = (nextDateLabel, nextEntryText) => {
+  const markDirtyIfChanged = (nextDateLabel, nextLocation, nextEntryText) => { // Include location in the dirty-state calculation inputs.
     // Compare current inputs against last saved snapshot.
-    const isDirty = hasUnsavedChanges(nextDateLabel, nextEntryText);
+    const isDirty = hasUnsavedChanges(nextDateLabel, nextLocation, nextEntryText); // Reuse one comparison that now checks location too.
 
     // Dirty means save button should be enabled; idle means disabled.
     setSaveState(isDirty ? "dirty" : "idle");
@@ -154,7 +161,12 @@ function JournalEditorPane({
     // Update local date field immediately as user types.
     setDateLabel(value);
     // Re-evaluate whether unsaved changes now exist.
-    markDirtyIfChanged(value, entryText);
+    markDirtyIfChanged(value, location, entryText); // Preserve current location when re-checking dirty state.
+  };
+
+  const handleLocationChange = (value) => { // Centralize location edits so location changes can mark the note dirty.
+    setLocation(value); // Update local location state immediately while typing.
+    markDirtyIfChanged(dateLabel, value, entryText); // Re-check dirty state using the newly typed location.
   };
 
   /**
@@ -164,7 +176,7 @@ function JournalEditorPane({
     // Update local markdown body immediately as user types.
     setEntryText(value);
     // Re-evaluate whether unsaved changes now exist.
-    markDirtyIfChanged(dateLabel, value);
+    markDirtyIfChanged(dateLabel, location, value); // Preserve current location when re-checking dirty state.
   };
 
   const handleEditorBlur = () => {
@@ -198,7 +210,7 @@ function JournalEditorPane({
       return;
     }
     // Has anything changed vs last save?
-    const hasChanges = hasUnsavedChanges(dateLabel, entryText);
+    const hasChanges = hasUnsavedChanges(dateLabel, location, entryText); // Consider location when deciding whether a save is required.
     // If nothing changed, skip network write and reset status to idle.
     if (!hasChanges) {
       setSaveState("idle");
@@ -217,6 +229,7 @@ function JournalEditorPane({
     try {
       await update(ref(db, `trips/${activeTripId}/notes/${activeNoteId}`), {
         displayDate: dateLabel,
+        location,
         entryText,
         displayDateTimestamp: nextTimestamp,
         updatedAt: Date.now(),
@@ -225,6 +238,7 @@ function JournalEditorPane({
       // we know what the last saved values were for comparison against current inputs.
       lastSavedRef.current = {
         dateLabel,
+        location, // Store the latest saved location for future dirty comparisons.
         entryText,
         displayDateTimestamp: nextTimestamp,
       };
@@ -485,6 +499,21 @@ function JournalEditorPane({
               // Save immediately when focus leaves the date field.
               onBlur={handleEditorBlur}
               className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300/70"
+            />
+          </label>
+
+          {/* Show a location input directly after Date so users can capture where this memory happened. */}
+          <label className="space-y-2 text-sm text-slate-200">
+            {/* Reuse the same label styling as Date for visual consistency. */}
+            <span>Location</span>{" "}
+            {/* Display the field label exactly as requested. */}
+            <input
+              type="text" // Use a plain text input because locations are free-form text.
+              value={location} // Bind input value to local state so React controls the field.
+              onChange={(event) => handleLocationChange(event.target.value)} // Use shared location handler so location-only edits enable saving.
+              onBlur={handleEditorBlur} // Keep blur behavior consistent with other editor fields.
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-300/70" // Match existing input styling in this component.
+              placeholder="" // Keep default appearance blank by not showing placeholder text.
             />
           </label>
 
