@@ -42,6 +42,7 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [isTripsOpen, setIsTripsOpen] = useState(false);
   const [isGuestView, setIsGuestView] = useState(false);
+  const [isEditorFullScreen, setIsEditorFullScreen] = useState(false);
 
   // Journal navigation state shared across sidebars and editor pane.
   const [trips, setTrips] = useState([]);
@@ -191,7 +192,7 @@ function App() {
 
   // Final branch: app shell (authenticated editor or guest read-only mode).
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col">
       <header className="border-b border-white/10 bg-slate-950/90 px-4 py-4 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -233,58 +234,68 @@ function App() {
         // Keep responsive grid classes as static strings so Tailwind can generate them.
         // Dynamically toggle between two grid layouts based on sidebar open state.
         // When Days sidebar is closed, the slim rail and Notes sidebar are together (mobile).
+        // In fullscreen mode, the editor takes the whole screen and sidebars are hidden.
         className={[
-          "mx-auto grid min-h-[calc(100vh-5.5rem)] max-w-[1800px] gap-4 p-4 md:p-6",
+          isEditorFullScreen
+            ? "mx-auto grid flex-1 min-h-0 w-full max-w-[1920px] gap-3 p-2 md:p-4 lg:p-6"
+            : "mx-auto grid flex-1 min-h-0 max-w-[1800px] gap-4 p-4 md:p-6",
           "lg:grid-rows-1",
-          isTripsOpen
-            ? "grid-cols-1 grid-rows-[auto_auto_auto] lg:grid-cols-[18rem_20rem_minmax(0,1fr)]"
-            : "grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_auto] lg:grid-cols-[3.5rem_20rem_minmax(0,1fr)]",
+          isEditorFullScreen
+            ? "grid-cols-1 grid-rows-1 lg:grid-cols-1"
+            : isTripsOpen
+              ? "grid-cols-1 grid-rows-[auto_auto_auto] lg:grid-cols-[18rem_20rem_minmax(0,1fr)]"
+              : "grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-[auto_auto] lg:grid-cols-[3.5rem_20rem_minmax(0,1fr)]",
         ].join(" ")}
       >
         {/* Left column: trips list and trip-level actions. */}
         {/*
           onTripsLoaded and onSelectTrip are callback props.
           TripsSidebar calls them when database data arrives or user selects a trip.
+          isEditorFullScreen is passed down so the sidebar can hide itself when the editor is full-screen.
         */}
-        <div
-          className={
-            isTripsOpen
-              ? "col-span-1 row-start-1 lg:col-start-1 lg:row-start-1"
-              : "col-start-1 row-start-1 lg:col-start-1 lg:row-start-1"
-          }
-        >
-          <TripsSidebar
-            activeTripId={activeTripId}
-            trips={trips}
-            onSelectTrip={setActiveTripId}
-            onTripsLoaded={setTrips}
-            isTripsOpen={isTripsOpen}
-            setIsTripsOpen={setIsTripsOpen}
-            canEdit={Boolean(user)}
-          />
-        </div>
-
-        <div
-          className={
-            isTripsOpen
-              ? "col-span-1 row-start-2 lg:col-start-2 lg:row-start-1 min-w-0"
-              : "col-start-2 row-start-1 min-w-0 lg:col-start-2 lg:row-start-1"
-          }
-        >
-          {/* Middle column: days/notes inside selected trip. */}
-          {/*
+        {!isEditorFullScreen && (
+          <div
+            className={
+              isTripsOpen
+                ? "col-span-1 row-start-1 lg:col-start-1 lg:row-start-1"
+                : "col-start-1 row-start-1 lg:col-start-1 lg:row-start-1"
+            }
+          >
+            <TripsSidebar
+              activeTripId={activeTripId}
+              trips={trips}
+              onSelectTrip={setActiveTripId}
+              onTripsLoaded={setTrips}
+              isTripsOpen={isTripsOpen}
+              setIsTripsOpen={setIsTripsOpen}
+              canEdit={Boolean(user)}
+            />
+          </div>
+        )}
+        {!isEditorFullScreen && (
+          <div
+            className={
+              isTripsOpen
+                ? "col-span-1 row-start-2 lg:col-start-2 lg:row-start-1 min-w-0"
+                : "col-start-2 row-start-1 min-w-0 lg:col-start-2 lg:row-start-1"
+            }
+          >
+            {/* Middle column: days/notes inside selected trip. */}
+            {/*
           NotesSidebar depends on activeTripId.
           When trip changes, it subscribes to that trip's notes path.
+          isEditorFullScreen is passed down so the sidebar can hide itself when the editor is full-screen.
         */}
-          <NotesSidebar
-            activeTripId={activeTripId}
-            activeNoteId={activeNoteId}
-            notes={notes}
-            onSelectNote={setActiveNoteId}
-            onNotesLoaded={setNotes}
-            canEdit={Boolean(user)}
-          />
-        </div>
+            <NotesSidebar
+              activeTripId={activeTripId}
+              activeNoteId={activeNoteId}
+              notes={notes}
+              onSelectNote={setActiveNoteId}
+              onNotesLoaded={setNotes}
+              canEdit={Boolean(user)}
+            />
+          </div>
+        )}
 
         {/* Right column: editor for the currently selected day. */}
         {/*
@@ -293,9 +304,11 @@ function App() {
         */}
         <div
           className={
-            isTripsOpen
-              ? "col-span-1 row-start-3 lg:col-start-3 lg:row-start-1"
-              : "col-span-2 row-start-2 lg:col-start-3 lg:row-start-1"
+            isEditorFullScreen
+              ? "col-span-1 row-start-1 min-w-0 h-full min-h-0 w-full mx-auto max-w-386 lg:col-start-1 lg:row-start-1"
+              : isTripsOpen
+                ? "col-span-1 row-start-3 h-full min-h-0 lg:col-start-3 lg:row-start-1"
+                : "col-span-2 row-start-2 h-full min-h-0 lg:col-start-3 lg:row-start-1"
           }
         >
           <JournalEditorPane
@@ -305,6 +318,8 @@ function App() {
             activeNote={activeNote}
             notes={notes}
             canEdit={Boolean(user)}
+            isEditorFullScreen={isEditorFullScreen}
+            onToggleFullScreen={() => setIsEditorFullScreen((prev) => !prev)}
           />
         </div>
       </main>

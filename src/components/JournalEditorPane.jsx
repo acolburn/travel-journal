@@ -30,6 +30,10 @@ function JournalEditorPane({
   notes,
   // Whether note mutations are allowed for the current session.
   canEdit,
+  // Whether the editor is currently in full-screen mode.
+  isEditorFullScreen,
+  // Callback to toggle full-screen mode.
+  onToggleFullScreen,
 }) {
   // Ref to textarea DOM node for auto-resize behavior.
   const textareaRef = useRef(null);
@@ -445,7 +449,7 @@ function JournalEditorPane({
 
   // Render editor panel and save-state messages.
   return (
-    <section className="flex min-h-112 flex-col rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20 backdrop-blur">
+    <section className="flex h-full min-h-0 flex-col rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20 backdrop-blur">
       <div className="mb-4 flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-semibold tracking-[0.24em] text-cyan-200 uppercase">
@@ -468,7 +472,7 @@ function JournalEditorPane({
       </div>
 
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-400 flex-1">
           <span
             style={{
               marginRight: 4,
@@ -481,6 +485,13 @@ function JournalEditorPane({
           ></span>
           <span>{isOnline ? "Online" : "Offline"}</span>
         </p>
+        <button
+          type="button"
+          onClick={onToggleFullScreen}
+          className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-cyan-300/60 hover:text-white"
+        >
+          {isEditorFullScreen ? "Disable Full Screen" : "Enable Full Screen"}
+        </button>
         <button
           type="button"
           onClick={handleSaveClick}
@@ -557,7 +568,7 @@ function JournalEditorPane({
           </label>
 
           <label className="flex min-h-0 flex-1 flex-col space-y-2 text-sm text-slate-200">
-            <span>Markdown entry</span>
+            <span>Entry</span>
             <textarea
               ref={textareaRef}
               value={entryText}
@@ -565,7 +576,7 @@ function JournalEditorPane({
               onChange={(event) => handleEntryChange(event.target.value)}
               // Save immediately when focus leaves the entry textarea.
               onBlur={handleEditorBlur}
-              className="min-h-48 max-h-175 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/70 px-4 py-4 font-mono text-sm leading-6 text-slate-100 outline-none transition focus:border-cyan-300/70"
+              className="min-h-48  flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/70 px-4 py-4 font-mono text-sm leading-6 text-slate-100 outline-none transition focus:border-cyan-300/70"
               placeholder="Write your markdown journal entry here."
             />
           </label>
