@@ -194,7 +194,7 @@ function App() {
   return (
     <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col">
       <header className="border-b border-white/10 bg-slate-950/90 px-4 py-4 backdrop-blur md:px-6">
-        <div className="mx-auto flex max-w-[1800px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-[2200px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs tracking-[0.3em] text-cyan-200 uppercase">
               Laura and Al's Days of Fun
@@ -237,8 +237,8 @@ function App() {
         // In fullscreen mode, the editor takes the whole screen and sidebars are hidden.
         className={[
           isEditorFullScreen
-            ? "mx-auto grid flex-1 min-h-0 w-full max-w-[1920px] gap-3 p-2 md:p-4 lg:p-6"
-            : "mx-auto grid flex-1 min-h-0 max-w-[1800px] gap-4 p-4 md:p-6",
+            ? "mx-auto grid flex-1 min-h-0 w-full max-w-[2200px] gap-3 p-2 md:p-4 lg:p-6"
+            : "mx-auto grid flex-1 min-h-0 w-full max-w-[2200px] gap-4 p-4 md:p-6",
           "lg:grid-rows-1",
           isEditorFullScreen
             ? "grid-cols-1 grid-rows-1 lg:grid-cols-1"
@@ -305,7 +305,7 @@ function App() {
         <div
           className={
             isEditorFullScreen
-              ? "col-span-1 row-start-1 min-w-0 h-full min-h-0 w-full mx-auto max-w-386 lg:col-start-1 lg:row-start-1"
+              ? "col-span-1 row-start-1 min-w-0 h-full min-h-0 w-full mx-auto max-w-none lg:col-start-1 lg:row-start-1"
               : isTripsOpen
                 ? "col-span-1 row-start-3 h-full min-h-0 lg:col-start-3 lg:row-start-1"
                 : "col-span-2 row-start-2 h-full min-h-0 lg:col-start-3 lg:row-start-1"
