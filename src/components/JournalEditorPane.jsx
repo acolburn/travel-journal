@@ -5,6 +5,47 @@ import { marked } from "marked";
 
 const AUTOSAVE_INTERVAL_MS = 20000; // 20 seconds
 
+const formatDisplayDateFromTimestamp = (timestamp) => {
+  if (!timestamp) {
+    return "";
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const getDisplayDateForNote = (note) => {
+  return (
+    formatDisplayDateFromTimestamp(note?.displayDateTimestamp) ||
+    note?.displayDate ||
+    ""
+  );
+};
+
+const normalizeDateLabelForParsing = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  // Accept both old and new UI formats when converting free-form text to a timestamp.
+  const trimmed = value.trim();
+  const withoutParenWeekday = trimmed.replace(/\s*\([^)]*\)\s*$/, "");
+  const withoutLeadingWeekday = withoutParenWeekday.replace(
+    /^[A-Za-z]+,\s+/,
+    "",
+  );
+  return withoutLeadingWeekday;
+};
+
 /**
  * JournalEditorPane renders the right column containing the active note fields.
  *
@@ -37,7 +78,7 @@ function JournalEditorPane({
 }) {
   // Ref to textarea DOM node for auto-resize behavior.
   const textareaRef = useRef(null);
-  const [dateLabel, setDateLabel] = useState(activeNote?.displayDate || "");
+  const [dateLabel, setDateLabel] = useState(getDisplayDateForNote(activeNote));
   const [location, setLocation] = useState(activeNote?.location || ""); // Start Location from the selected note; fall back to blank if missing.
   const [entryText, setEntryText] = useState(activeNote?.entryText || "");
   const [saveState, setSaveState] = useState("idle");
@@ -67,7 +108,7 @@ function JournalEditorPane({
 
   // Snapshot of last persisted values used to detect unsaved edits.
   const lastSavedRef = useRef({
-    dateLabel: activeNote?.displayDate || "",
+    dateLabel: getDisplayDateForNote(activeNote),
     location: activeNote?.location || "", // Keep last saved location so dirty checks include location edits.
     entryText: activeNote?.entryText || "",
     displayDateTimestamp: activeNote?.displayDateTimestamp || 0,
@@ -118,7 +159,7 @@ function JournalEditorPane({
     // Schedule reset one paint later to avoid transient selection timing issues.
     const frameId = window.requestAnimationFrame(() => {
       // Compute safe fallback values when no active note exists.
-      const nextDateLabel = activeNote?.displayDate || "";
+      const nextDateLabel = getDisplayDateForNote(activeNote);
       const nextLocation = activeNote?.location || "";
       const nextEntryText = activeNote?.entryText || "";
 
@@ -256,24 +297,27 @@ function JournalEditorPane({
     setSaveState("saving");
     setSaveErrorMessage("");
 
-    const parsedDate = Date.parse(dateLabel);
+    const normalizedDateLabel = normalizeDateLabelForParsing(dateLabel);
+    const parsedDate = Date.parse(normalizedDateLabel);
     // nextTimestamp is the value saved to Firebase. It is either a parseable date or falls back to last saved/current time.
     const nextTimestamp = Number.isNaN(parsedDate)
       ? lastSavedRef.current.displayDateTimestamp || Date.now()
       : parsedDate;
+    const nextDisplayDate = formatDisplayDateFromTimestamp(nextTimestamp);
     // Save updated fields to the database, at the exact path for the active note.
     try {
       await update(ref(db, `trips/${activeTripId}/notes/${activeNoteId}`), {
-        displayDate: dateLabel,
+        displayDate: nextDisplayDate,
         location,
         entryText,
         displayDateTimestamp: nextTimestamp,
         updatedAt: Date.now(),
       });
+      setDateLabel(nextDisplayDate);
       // Update local saved snapshot so future dirty checks are accurate, i.e.,
       // we know what the last saved values were for comparison against current inputs.
       lastSavedRef.current = {
-        dateLabel,
+        dateLabel: nextDisplayDate,
         location, // Store the latest saved location for future dirty comparisons.
         entryText,
         displayDateTimestamp: nextTimestamp,

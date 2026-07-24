@@ -2,6 +2,24 @@ import { useEffect, useState } from "react";
 import { onValue, push, ref, remove, set } from "firebase/database";
 import { db } from "../../firestore";
 
+const formatDisplayDateFromTimestamp = (timestamp) => {
+  if (!timestamp) {
+    return "";
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
 /**
  * NotesSidebar renders the middle sidebar and keeps notes synced for the active trip.
  *
@@ -117,11 +135,7 @@ function NotesSidebar({
 
     // Create timestamp/date defaults for the new note.
     const now = new Date();
-    const defaultDisplayDate = now.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const defaultDisplayDate = formatDisplayDateFromTimestamp(now.getTime());
 
     try {
       // Generate unique note/day key under selected trip.
@@ -236,6 +250,10 @@ function NotesSidebar({
         <div className="space-y-2 overflow-y-auto pr-1">
           {notes.map((note) => {
             const isActive = note.id === activeNoteId;
+            const displayedDateLabel =
+              formatDisplayDateFromTimestamp(note.displayDateTimestamp) ||
+              note.displayDate ||
+              "Untitled day";
 
             return (
               <div
@@ -260,7 +278,7 @@ function NotesSidebar({
               >
                 <div className="w-full text-left">
                   <p className="text-sm font-semibold text-white">
-                    {note.displayDate || "Untitled day"}
+                    {displayedDateLabel}
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
                     {note.entryText
@@ -276,7 +294,7 @@ function NotesSidebar({
                     onClick={(event) => {
                       // Prevent delete click from also triggering card selection.
                       event.stopPropagation();
-                      handleDeleteDay(note.id, note.displayDate);
+                      handleDeleteDay(note.id, displayedDateLabel);
                     }}
                     className="rounded-full border border-rose-400/30 px-3 py-1 text-xs text-rose-200 transition hover:bg-rose-500/20"
                   >
